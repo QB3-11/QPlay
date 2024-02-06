@@ -1,0 +1,94 @@
+#!/usr/bin/python3
+
+from pytube import YouTube, exceptions
+from sys import argv
+import os
+
+
+def download(url:str, itag:int, name, path:str):
+    """Downloads audio/video from the given youtube url."""
+    video = YouTube(url)
+    file = video.streams.get_by_itag(itag)
+    file.download(output_path=path, filename=name)
+
+    return video.title
+
+# -g
+def get():
+    """Manages the download function and downloaded files."""
+
+
+    # -v (video)
+    # -l (location)
+    # -n (name)
+    # -a (playlist / array of videos)
+
+    #usage get <link> -<options> <name> <path>
+    # <name> and <path> are optional
+
+    USR = os.path.expanduser('~')
+    DEFAULTPATH = os.path.join(USR, 'Music')
+
+    AUDIO_STREAMS = (251, 250, 249)
+    VIDEO_STREAMS = (394, 137, 22, 18)
+    LINK = argv[1]
+
+    streams = AUDIO_STREAMS
+    fpath = DEFAULTPATH
+    name = None
+
+    if argv[1][0] == '-':
+
+        for cnt, char in enumerate(argv[1]):
+
+            if char == 'v':
+                streams = VIDEO_STREAMS
+                fpath = os.path.join(USR, 'Videos')
+
+            if char == 'l':
+                if not os.path.exists(os.path.join(USR, argv[4])):
+                    print(f"Given directiory '{argv[4]}' does not exists.")
+                    print(f"Storing file in {fpath}.\n")
+
+                else:
+                    fpath = os.path.join(USR,argv[4])
+
+            if char == 'n':
+                if argv[3] == 'd':
+                    pass
+
+                else:
+                    name =  argv[3]
+
+    for stream in streams:
+
+        try:
+            song = download(LINK, stream, name, fpath)
+            if name is None:
+                name = song
+
+            file = os.path.join(fpath,name)
+            os.system(f"ffmpeg -i '{file}.webm' '{file}.flac' && rm '{file}.webm'")
+            print("Download Successfull")
+
+        except AttributeError:
+            continue
+
+        except exceptions.RegexMatchError:
+            print("\nUser Error")
+            print("Make sure you are using the right syntax\n")
+            print("qplay -g<options> <link> <name> <path>\n")
+            break
+
+        else:
+            break
+
+    else:
+        if not path.exists(fpath + name):
+                print("Download Failed")
+
+# -p
+def play():
+    pass
+
+get()
