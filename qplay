@@ -2,17 +2,54 @@
 
 from pytube import YouTube, exceptions
 from sys import argv
+import subprocess
+import pydub
 import os
 
+HOMEDIR = os.path.expanduser('~')
+USAGE = """
+    qplay -get <link> -<options> <name>/<path>
+    <options>, <name> and <path> are optional
+    """
+
+def GetTitle(video):
+    """Returns the title of the given video"""
+        
+    v_title = video.title
+    keywords = v_title.split()
+    keywords = list(keywords)[:5]
+   
+    for word in keywords:
+        for char in word:
+            if ord(char) > 127 or not char.isalnum():
+                keywords.remove(word)
+                break
+
+
+    name = ''.join(keywords)
+
+    return name
+
+def convert(webm_file:str, extension='.flac'):
+    file = pydub.AudioSegment.from_file(webm_file, "webm")
+    file.export(webm_file, format="flac")
 
 def download(url:str, itag:int, name, path:str):
     """Downloads audio/video from the given youtube url."""
+
     video = YouTube(url)
+    
+    if name is not None:
+        title = name
+
+    else:
+        title = GetTitle(video)
+
     file = video.streams.get_by_itag(itag)
-    file.download(output_path=path, filename=name)
+    file.download(output_path=path, filename=title)
 
-    return video.title
-
+    return title
+    
 # -g
 def get():
     """Manages the download function and downloaded files."""
@@ -23,72 +60,72 @@ def get():
     # -n (name)
     # -a (playlist / array of videos)
 
-    #usage get <link> -<options> <name> <path>
-    # <name> and <path> are optional
-
-    USR = os.path.expanduser('~')
-    DEFAULTPATH = os.path.join(USR, 'Music')
+    DEFAULTPATH = os.path.join(HOMEDIR, 'Music')
 
     AUDIO_STREAMS = (251, 250, 249)
     VIDEO_STREAMS = (394, 137, 22, 18)
-    LINK = argv[1]
+    LINK = argv[2]
 
     streams = AUDIO_STREAMS
     fpath = DEFAULTPATH
     name = None
 
-    if argv[1][0] == '-':
+    for pos, option in enumerate(argv):
 
-        for cnt, char in enumerate(argv[1]):
-
-            if char == 'v':
+        try:
+            if option == '-v':
                 streams = VIDEO_STREAMS
-                fpath = os.path.join(USR, 'Videos')
+                fpath = os.path.join(HOMEDIR, 'Videos')
 
-            if char == 'l':
-                if not os.path.exists(os.path.join(USR, argv[4])):
-                    print(f"Given directiory '{argv[4]}' does not exists.")
+            elif option == '-l':
+                if not os.path.exists(os.path.join(HOMEDIR, argv[pos + 1])):
+                    print(f"Given directiory '{argv[pos + 1]}' does not exists.")
                     print(f"Storing file in {fpath}.\n")
 
                 else:
-                    fpath = os.path.join(USR,argv[4])
+                    fpath = os.path.join(HOMEDIR,argv[pos + 1])
 
-            if char == 'n':
-                if argv[3] == 'd':
-                    pass
+            elif option == '-n':
+                name = argv[pos + 1]
 
-                else:
-                    name =  argv[3]
+        except IndexError:
+            print(USAGE)
 
     for stream in streams:
-
         try:
             song = download(LINK, stream, name, fpath)
-            if name is None:
-                name = song
 
-            file = os.path.join(fpath,name)
-            os.system(f"ffmpeg -i '{file}.webm' '{file}.flac' && rm '{file}.webm'")
+            file = os.path.join(fpath, song)
+            convert(file)
             print("Download Successfull")
+            break
 
         except AttributeError:
             continue
 
         except exceptions.RegexMatchError:
-            print("\nUser Error")
-            print("Make sure you are using the right syntax\n")
-            print("qplay -g<options> <link> <name> <path>\n")
-            break
-
-        else:
+            print("""
+            \nUser Error
+            Make sure you are using the right syntax\n
+            qplay -g<options> <link> <name> <path>\n
+            """)
             break
 
     else:
-        if not path.exists(fpath + name):
+        if not os.path.exists(os.path.join(fpath, song)):
                 print("Download Failed")
 
 # -p
 def play():
     pass
 
-get()
+if __name__ == "__main__":
+
+    if argv[1].startswith('-'):
+
+        if '-get' in argv[1]:
+            get()
+
+    else:
+        play()
+
